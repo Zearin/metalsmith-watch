@@ -1,5 +1,5 @@
 {
-  "name": "@jannis/metalsmith-watch",
+  "name": "@Zearin/metalsmith-watch",
   "version": "1.0.4",
   "description": "Metalsmith plugin to watch for changes and trigger partial and full rebuilds",
   "keywords": [
@@ -11,7 +11,7 @@
     "Maxime Thirouin"
   ],
   "license": "MIT",
-  "repository": "https://github.com/jannisg/metalsmith-watch.git",
+  "repository": "https://github.com/Zearin/metalsmith-watch.git",
   "files": [
     "dist"
   ],
