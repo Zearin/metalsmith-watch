@@ -10,14 +10,19 @@ import gaze from "gaze"
 import color from "chalk"
 import multimatch from "multimatch"
 import unyield from "unyield"
-import metalsmithFilenames from "metalsmith-filenames"
 
 import livereloadServer from "./livereload"
+import {
+  backupCollections, 
+  updateCollections, 
+  saveFilenameInFilesData, 
+  removeFilesFromCollection
+} from "./collectionsFixes"
+
 
 const jsFileRE = /\.(jsx?|es\d{0,1})$/
-const addFilenames = metalsmithFilenames()
 
-const ok = color.green("✔︎")
+const ok  = color.green("✔︎")
 const nok = color.red("✗")
 
 // only first file that require something has it in its children
@@ -41,7 +46,7 @@ const nok = color.red("✗")
 // }
 
 function livereloadFiles(livereload, files, options) {
-  if(livereload) {
+  if (livereload) {
     const keys = Object.keys(files)
     const nbOfFiles = Object.keys(files).length
     options.log(`${ok} ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""} reloaded`)
@@ -51,75 +56,27 @@ function livereloadFiles(livereload, files, options) {
 
 function runOnUpdateCallback(onUpdateCallback, files, options) {
   if (onUpdateCallback) {
-    onUpdateCallback(files, options);
+    onUpdateCallback(files, options)
   }
-}
-
-// metalsmith-collections fix: collections are mutable
-// fuck mutability
-function backupCollections(collections) {
-  const collectionsBackup = {}
-  if (typeof collections === "object") {
-    Object.keys(collections).forEach(key => {
-      collectionsBackup[key] = [...collections[key]]
-    })
-  }
-  return collectionsBackup
-}
-
-// metalsmith-collections fix: collections are in metadata as is + under metadata.collections
-function updateCollections(metalsmith, collections) {
-  const metadata = {
-    ...metalsmith.metadata(),
-    collections,
-  }
-  // copy ref to metadata root since metalsmith-collections use this references
-  // as primary location (*facepalm*)
-  Object.keys(collections).forEach(key => {
-    metadata[key] = collections[key]
-  })
-  metalsmith.metadata(metadata)
-}
-
-// metalsmith-collections fix: helps to update fix collections
-function saveFilenameInFilesData(metalsmith, files, options) {
-  addFilenames(files)
-//   const relativeRoot = options.relativeRoot ? options.relativeRoot : metalsmith.source();
-//   Object.keys(files).forEach(filename => {
-//     if (!files[filename].filename) {
-// console.log('svaing.... ', normalizePath(relativePath(relativeRoot, filename)))
-//       files[filename].filename = normalizePath(relativePath(relativeRoot, filename))
-//     }
-//   })
-}
-
-// metalsmith-collections fix: remove items from collections that will be readded by the partial build
-function removeFilesFromCollection(files, collections) {
-  const filenames = Object.keys(files)
-  Object.keys(collections).forEach(key => {
-
-    for (let i = 0; i < collections[key].length; i++) {
-      if (filenames.indexOf(collections[key][i].filename) > -1) {
-        collections[key] = [
-          ...collections[key].slice(0, i),
-          ...collections[key].slice(i + 1),
-        ]
-        i--
-      }
-    }
-  })
 }
 
 function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, previousFilesMap) {
-  // metalsmith-collections fix: metalsmith-collections plugin add files to
-  // collection when run() is called which create problem since we use run()
-  // with only new files.
-  // In order to prevent prevent duplicate issue (some contents will be available
-  // in collections with the new and the previous version),
-  // we remove from existing collections files that will be updated
-  // (file already in the collections)
-  // we iterate on collections with reference to previous files data
-  // and skip old files that match the paths that will be updated
+  /*
+   *  metalsmith-collections fix: 
+   *  
+   *  the `metalsmith-collections` plugin adds files to collection when `run()` is 
+   *  called, which creates problem since we use `run()` with only new files.
+   *  
+   *  In order to prevent duplicate issue (i.e. some contents will be available in 
+   *  collections with both new and the previous versions), we:
+   *  
+   *  1.  remove from existing collections files that will be updated 
+   *      (files already in the collections)
+   *  2.  iterate over collections with references to previous files data
+   *  3.  skip old files whose paths match those that will be updated
+   *  
+   *  (sigh)
+   */
   saveFilenameInFilesData(metalsmith, files, options)
   const collections = metalsmith.metadata().collections
   const collectionsBackup = backupCollections(collections)
@@ -153,7 +110,7 @@ function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, 
     })
 
     metalsmith.write(freshFiles, function(writeErr) {
-      if(writeErr) {throw writeErr}
+      if (writeErr) {throw writeErr}
 
       livereloadFiles(livereload, freshFiles, options)
       runOnUpdateCallback(onUpdateCallback, freshFiles, options)
@@ -202,18 +159,20 @@ function buildFiles(metalsmith, paths, livereload, onUpdateCallback, options, pr
 }
 
 function buildPattern(metalsmith, patterns, livereload, onUpdateCallback, options, previousFilesMap) {
-  unyield(metalsmith.read())((err, files) => {
-    if (err) {
-      options.log(color.red(`${nok} ${err}`))
-      return
-    }
+  unyield(metalsmith.read())(
+    (err, files) => {
+      if (err) {
+        options.log(color.red(`${nok} ${err}`))
+        return
+      }
 
-    const filesToUpdate = {}
-    multimatch(Object.keys(files), patterns).forEach(path => filesToUpdate[path] = files[path])
-    const nbOfFiles = Object.keys(filesToUpdate).length
-    options.log(color.gray(`- Updating ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""}...`))
-    runAndUpdate(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
-  })
+      const filesToUpdate = {}
+      multimatch(Object.keys(files), patterns).forEach(path => filesToUpdate[path] = files[path])
+      const nbOfFiles = Object.keys(filesToUpdate).length
+      options.log(color.gray(`- Updating ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""}...`))
+      runAndUpdate(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
+    }
+  )
 }
 
 export default function(options) {
@@ -234,7 +193,7 @@ export default function(options) {
   }
 
   let livereload
-  if(options.livereload) {
+  if (options.livereload) {
     livereload = livereloadServer(options.livereload, options.log)
   }
 
@@ -259,127 +218,129 @@ export default function(options) {
     const patterns = {}
     Object.keys(options.paths).map(pattern => {
       let watchPattern = pattern.replace("${source}", metalsmith.source())
-      if (!isAbsolutePath(watchPattern)){
+      if (!isAbsolutePath(watchPattern)) {
         watchPattern = resolvePath(metalsmith.directory(), pattern);
       }
       const watchPatternRelative = relativePath(metalsmith.directory(), watchPattern)
-
       patterns[watchPatternRelative] = options.paths[pattern]
     })
-
-    gaze(
-      Object.keys(patterns),
-      {
+    
+    const gazePatterns = Object.keys(patterns)
+    const gazeOptions  = {
         ...options.gaze,
         cwd: metalsmith._directory,
-      },
-      function watcherReady(err, watcher) {
-        if (err) {throw err}
+      }
+    const gazeCallback = function watcherReady(err, watcher) {
+      if (err) {throw err}
 
-        Object.keys(patterns).forEach(pattern => {
-          options.log(`${ok} Watching ${color.cyan(pattern)}`)
-        })
+      Object.keys(patterns).forEach(pattern => {
+        options.log(`${ok} Watching ${color.cyan(pattern)}`)
+      })
 
-        const previousFilesMap = {...files}
+      const previousFilesMap = {...files}
 
-        // Delay watch update to be able to bundle multiples update in the same build
-        // Saving multiples files at the same time create multiples build otherwise
-        let updateDelay = 50
-        let updatePlanned = false
-        let pathsToUpdate = []
-        const update = () => {
-          // since I can't find a way to do a smart cache cleaning
-          // (see commented invalidateCache() method)
-          // here is a more brutal way (that works)
-          if (
-            options.invalidateCache &&
-            // only if there is a js file
-            pathsToUpdate.some(file => file.match(jsFileRE))
-          ) {
-            const filesToInvalidate = Object.keys(patterns)
-              .reduce((acc, pattern) => {
-                return [
-                  ...acc,
-                  ...multimatch(
-                    Object.keys(require.cache),
-                    `${resolvePath(metalsmith._directory)}/${pattern}`
-                  ),
-                ]
-              }, [])
-            if (filesToInvalidate.length) {
-              options.log(color.gray(`- Deleting cache for ${filesToInvalidate.length} entries...`))
-              filesToInvalidate.forEach(file => delete require.cache[file])
-              options.log(`${ok} Cache deleted`)
-            }
+      //  Delay watch update in order to bundle multiple updates 
+      //  in the same build
+      //  (Otherwise, saving multiples files at the same time triggers 
+      //  multiple builds)
+      let updateDelay   = 50
+      let updatePlanned = false
+      let pathsToUpdate = []
+      
+      // since I can't find a way to do a smart cache cleaning
+      // (see commented invalidateCache() method)
+      // here is a more brutal way (that works)
+      const update = () => {
+        if (
+          options.invalidateCache &&
+          // only if there is a js file
+          pathsToUpdate.some(file => file.match(jsFileRE))
+        ) {
+          const filesToInvalidate = Object.keys(patterns)
+            .reduce((acc, pattern) => {
+              return [
+                ...acc,
+                ...multimatch(
+                  Object.keys(require.cache),
+                  `${resolvePath(metalsmith._directory)}/${pattern}`
+                ),
+              ]
+            }, [])
+          if (filesToInvalidate.length) {
+            options.log(color.gray(`- Deleting cache for ${filesToInvalidate.length} entries...`))
+            filesToInvalidate.forEach(file => delete require.cache[file])
+            options.log(`${ok} Cache deleted`)
           }
-
-          const patternsToUpdate = Object.keys(patterns).filter(pattern => patterns[pattern] === true)
-          const filesToUpdate = multimatch(pathsToUpdate, patternsToUpdate).map((file) => {
-            const filepath = resolvePath(metalsmith.path(), file)
-            return relativePath(metalsmith.source(), filepath)
-          })
-          if (filesToUpdate.length) {
-            buildFiles(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
-          }
-
-          const patternsToUpdatePattern = Object.keys(patterns)
-            .filter(pattern => patterns[pattern] !== true)
-            .filter(pattern => multimatch(pathsToUpdate, pattern).length > 0)
-            .map(pattern => patterns[pattern])
-
-          if (patternsToUpdatePattern.length) {
-            buildPattern(metalsmith, patternsToUpdatePattern, livereload, onUpdateCallback, options, previousFilesMap)
-          }
-          // console.log(pathsToUpdate, filesToUpdate, patternsToUpdatePattern)
-
-          // cleanup
-          pathsToUpdate = []
         }
 
-        watcher.on("all", (event, path) => {
-          const filename = relativePath(metalsmith._directory, path)
-
-          if (
-            event === "added" ||
-            event === "changed" ||
-            event === "renamed" ||
-            event === "deleted"
-          ) {
-            options.log(`${ok} ${color.cyan(filename)} ${event}`)
-          }
-
-          // if (event === "changed") {
-          //   if (options.invalidateCache) {
-          //     invalidateCache(
-          //       resolvePath(metalsmith._directory),
-          //       resolvePath(path),
-          //       options
-          //     )
-          //   }
-          // }
-
-          if (
-            event === "added" ||
-            event === "changed" ||
-            event === "renamed"
-          ) {
-            pathsToUpdate.push(relativePath(metalsmith.path(), path))
-            if (updatePlanned) {
-              clearTimeout(updatePlanned)
-            }
-            updatePlanned = setTimeout(update, updateDelay)
-          }
+        const patternsToUpdate = Object.keys(patterns).filter(pattern => patterns[pattern] === true)
+        const filesToUpdate = multimatch(pathsToUpdate, patternsToUpdate).map((file) => {
+          const filepath = resolvePath(metalsmith.path(), file)
+          return relativePath(metalsmith.source(), filepath)
         })
+        if (filesToUpdate.length) {
+          buildFiles(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
+        }
 
-        plugin.close = () => {
-          if (typeof watcher === "object") {
-            watcher.close()
-            watcher = undefined
+        const patternsToUpdatePattern = Object.keys(patterns)
+          .filter(pattern => patterns[pattern] !== true)
+          .filter(pattern => multimatch(pathsToUpdate, pattern).length > 0)
+          .map(pattern => patterns[pattern])
+
+        if (patternsToUpdatePattern.length) {
+          buildPattern(metalsmith, patternsToUpdatePattern, livereload, onUpdateCallback, options, previousFilesMap)
+        }
+        // console.log(pathsToUpdate, filesToUpdate, patternsToUpdatePattern)
+
+        // cleanup
+        pathsToUpdate = []
+      }
+
+      watcher.on("all", (event, path) => {
+        const filename = relativePath(metalsmith._directory, path)
+
+        if (
+          event === "added"   ||
+          event === "changed" ||
+          event === "renamed" ||
+          event === "deleted"
+        ) {
+          options.log(`${ok} ${color.cyan(filename)} ${event}`)
+        }
+
+        // if (event === "changed") {
+        //   if (options.invalidateCache) {
+        //     invalidateCache(
+        //       resolvePath(metalsmith._directory),
+        //       resolvePath(path),
+        //       options
+        //     )
+        //   }
+        // }
+
+        if (
+          event === "added"   ||
+          event === "changed" ||
+          event === "renamed"
+        ) {
+          pathsToUpdate.push(relativePath(metalsmith.path(), path))
+          if (updatePlanned) {
+            clearTimeout(updatePlanned)
           }
+          updatePlanned = setTimeout(update, updateDelay)
+        }
+      })
+
+      plugin.close = () => {
+        if (typeof watcher === "object") {
+          watcher.close()
+          watcher = undefined
         }
       }
-    )
-
+    }
+    
+    gaze(gazePatterns, gazeOptions, gazeCallback)
+    
     cb()
   }
 
