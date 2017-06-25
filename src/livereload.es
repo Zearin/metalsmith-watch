@@ -2,17 +2,17 @@ import color from "chalk"
 import tinylr from "tiny-lr"
 
 export default function livereloadServer(options, log) {
-  if(options === true) {
+  if (options === true) {
     options = {port: 35729}
   }
-  else if(typeof options === "number") {
+  else if (typeof options === "number") {
     options = {port: options}
   }
 
   const server = tinylr(options)
 
   server.on("error", function(err) {
-    if(err.code === "EADDRINUSE") {
+    if (err.code === "EADDRINUSE") {
       log(color.red("Port " + options.port + " is already in use by another process."))
     }
     else {
@@ -23,9 +23,7 @@ export default function livereloadServer(options, log) {
   })
 
   server.listen(options.port, function(err) {
-    if(err) {
-      return log(color.red(err))
-    }
+     if (err) { return log(color.red(err)) }
 
     log(`${color.green("✓")} Live reload server started on port: ${color.cyan(options.port)}`)
   })
