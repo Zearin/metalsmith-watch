@@ -10,12 +10,16 @@ import gaze from "gaze"
 import color from "chalk"
 import multimatch from "multimatch"
 import unyield from "unyield"
-import metalsmithFilenames from "metalsmith-filenames"
 
 import livereloadServer from "./livereload"
+import {
+  backupCollections, 
+  updateCollections, 
+  saveFilenameInFilesData, 
+  removeFilesFromCollection
+} from "./collectionsFixes"
 
 const jsFileRE = /\.(jsx?|es\d{0,1})$/
-const addFilenames = metalsmithFilenames()
 
 const ok = color.green("✔︎")
 const nok = color.red("✗")
@@ -53,61 +57,6 @@ function runOnUpdateCallback(onUpdateCallback, files, options) {
   if (onUpdateCallback) {
     onUpdateCallback(files, options);
   }
-}
-
-// metalsmith-collections fix: collections are mutable
-// fuck mutability
-function backupCollections(collections) {
-  const collectionsBackup = {}
-  if (typeof collections === "object") {
-    Object.keys(collections).forEach(key => {
-      collectionsBackup[key] = [...collections[key]]
-    })
-  }
-  return collectionsBackup
-}
-
-// metalsmith-collections fix: collections are in metadata as is + under metadata.collections
-function updateCollections(metalsmith, collections) {
-  const metadata = {
-    ...metalsmith.metadata(),
-    collections,
-  }
-  // copy ref to metadata root since metalsmith-collections use this references
-  // as primary location (*facepalm*)
-  Object.keys(collections).forEach(key => {
-    metadata[key] = collections[key]
-  })
-  metalsmith.metadata(metadata)
-}
-
-// metalsmith-collections fix: helps to update fix collections
-function saveFilenameInFilesData(metalsmith, files, options) {
-  addFilenames(files)
-//   const relativeRoot = options.relativeRoot ? options.relativeRoot : metalsmith.source();
-//   Object.keys(files).forEach(filename => {
-//     if (!files[filename].filename) {
-// console.log('svaing.... ', normalizePath(relativePath(relativeRoot, filename)))
-//       files[filename].filename = normalizePath(relativePath(relativeRoot, filename))
-//     }
-//   })
-}
-
-// metalsmith-collections fix: remove items from collections that will be readded by the partial build
-function removeFilesFromCollection(files, collections) {
-  const filenames = Object.keys(files)
-  Object.keys(collections).forEach(key => {
-
-    for (let i = 0; i < collections[key].length; i++) {
-      if (filenames.indexOf(collections[key][i].filename) > -1) {
-        collections[key] = [
-          ...collections[key].slice(0, i),
-          ...collections[key].slice(i + 1),
-        ]
-        i--
-      }
-    }
-  })
 }
 
 function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, previousFilesMap) {
