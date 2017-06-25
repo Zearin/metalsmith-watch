@@ -120,7 +120,7 @@ function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, 
 
 function buildFiles(metalsmith, paths, livereload, onUpdateCallback, options, previousFilesMap) {
   const files = {}
-  const metadata = metalsmith.metadata();
+  const metadata = metalsmith.metadata()
   async.each(
     paths,
     (path, cb) => {
@@ -131,9 +131,9 @@ function buildFiles(metalsmith, paths, livereload, onUpdateCallback, options, pr
         }
 
         if (metadata && metadata.permalinkMapping) {
-          const originalFilename = metadata.permalinkMapping[path];
+          const originalFilename = metadata.permalinkMapping[path]
           if (originalFilename && previousFilesMap[originalFilename]) {
-            file = Object.assign({}, previousFilesMap[originalFilename], file);
+            file = Object.assign({}, previousFilesMap[originalFilename], file)
             file[originalFilename] = file
           } else {
             files[path] = file
@@ -199,7 +199,7 @@ export default function(options) {
 
   let onUpdateCallback
   if (options.onUpdateCallback && typeof options.onUpdateCallback === 'function') {
-    onUpdateCallback = options.onUpdateCallback.bind(this);
+    onUpdateCallback = options.onUpdateCallback.bind(this)
   }
 
   let watched = false
@@ -219,7 +219,7 @@ export default function(options) {
     Object.keys(options.paths).map(pattern => {
       let watchPattern = pattern.replace("${source}", metalsmith.source())
       if (!isAbsolutePath(watchPattern)) {
-        watchPattern = resolvePath(metalsmith.directory(), pattern);
+        watchPattern = resolvePath(metalsmith.directory(), pattern)
       }
       const watchPatternRelative = relativePath(metalsmith.directory(), watchPattern)
       patterns[watchPatternRelative] = options.paths[pattern]
