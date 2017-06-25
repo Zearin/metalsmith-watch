@@ -19,6 +19,7 @@ import {
   removeFilesFromCollection
 } from "./collectionsFixes"
 
+
 const jsFileRE = /\.(jsx?|es\d{0,1})$/
 
 const ok  = color.green("✔︎")
