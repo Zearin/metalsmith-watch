@@ -21,7 +21,7 @@ import {
 
 const jsFileRE = /\.(jsx?|es\d{0,1})$/
 
-const ok = color.green("✔︎")
+const ok  = color.green("✔︎")
 const nok = color.red("✗")
 
 // only first file that require something has it in its children
@@ -45,7 +45,7 @@ const nok = color.red("✗")
 // }
 
 function livereloadFiles(livereload, files, options) {
-  if(livereload) {
+  if (livereload) {
     const keys = Object.keys(files)
     const nbOfFiles = Object.keys(files).length
     options.log(`${ok} ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""} reloaded`)
@@ -60,15 +60,22 @@ function runOnUpdateCallback(onUpdateCallback, files, options) {
 }
 
 function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, previousFilesMap) {
-  // metalsmith-collections fix: metalsmith-collections plugin add files to
-  // collection when run() is called which create problem since we use run()
-  // with only new files.
-  // In order to prevent prevent duplicate issue (some contents will be available
-  // in collections with the new and the previous version),
-  // we remove from existing collections files that will be updated
-  // (file already in the collections)
-  // we iterate on collections with reference to previous files data
-  // and skip old files that match the paths that will be updated
+  /*
+    metalsmith-collections fix: 
+    
+    the `metalsmith-collections` plugin adds files to collection when `run()` is 
+    called, which creates problem since we use `run()` with only new files.
+  
+    In order to prevent duplicate issue (i.e. some contents will be available in 
+    collections with both new and the previous versions), we:
+    
+    1.  remove from existing collections files that will be updated 
+        (files already in the collections)
+    2.  iterate over collections with references to previous files data
+    3.  skip old files whose paths match those that will be updated
+    
+    (sigh)
+  */
   saveFilenameInFilesData(metalsmith, files, options)
   const collections = metalsmith.metadata().collections
   const collectionsBackup = backupCollections(collections)
@@ -102,7 +109,7 @@ function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, 
     })
 
     metalsmith.write(freshFiles, function(writeErr) {
-      if(writeErr) {throw writeErr}
+      if (writeErr) {throw writeErr}
 
       livereloadFiles(livereload, freshFiles, options)
       runOnUpdateCallback(onUpdateCallback, freshFiles, options)
@@ -151,18 +158,20 @@ function buildFiles(metalsmith, paths, livereload, onUpdateCallback, options, pr
 }
 
 function buildPattern(metalsmith, patterns, livereload, onUpdateCallback, options, previousFilesMap) {
-  unyield(metalsmith.read())((err, files) => {
-    if (err) {
-      options.log(color.red(`${nok} ${err}`))
-      return
-    }
+  unyield(metalsmith.read())(
+    (err, files) => {
+      if (err) {
+        options.log(color.red(`${nok} ${err}`))
+        return
+      }
 
-    const filesToUpdate = {}
-    multimatch(Object.keys(files), patterns).forEach(path => filesToUpdate[path] = files[path])
-    const nbOfFiles = Object.keys(filesToUpdate).length
-    options.log(color.gray(`- Updating ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""}...`))
-    runAndUpdate(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
-  })
+      const filesToUpdate = {}
+      multimatch(Object.keys(files), patterns).forEach(path => filesToUpdate[path] = files[path])
+      const nbOfFiles = Object.keys(filesToUpdate).length
+      options.log(color.gray(`- Updating ${nbOfFiles} file${nbOfFiles > 1 ? "s" : ""}...`))
+      runAndUpdate(metalsmith, filesToUpdate, livereload, onUpdateCallback, options, previousFilesMap)
+    }
+  )
 }
 
 export default function(options) {
@@ -183,7 +192,7 @@ export default function(options) {
   }
 
   let livereload
-  if(options.livereload) {
+  if (options.livereload) {
     livereload = livereloadServer(options.livereload, options.log)
   }
 
@@ -208,11 +217,10 @@ export default function(options) {
     const patterns = {}
     Object.keys(options.paths).map(pattern => {
       let watchPattern = pattern.replace("${source}", metalsmith.source())
-      if (!isAbsolutePath(watchPattern)){
+      if (!isAbsolutePath(watchPattern)) {
         watchPattern = resolvePath(metalsmith.directory(), pattern);
       }
       const watchPatternRelative = relativePath(metalsmith.directory(), watchPattern)
-
       patterns[watchPatternRelative] = options.paths[pattern]
     })
 
