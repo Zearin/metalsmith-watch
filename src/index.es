@@ -55,27 +55,27 @@ function livereloadFiles(livereload, files, options) {
 
 function runOnUpdateCallback(onUpdateCallback, files, options) {
   if (onUpdateCallback) {
-    onUpdateCallback(files, options);
+    onUpdateCallback(files, options)
   }
 }
 
 function runAndUpdate(metalsmith, files, livereload, onUpdateCallback, options, previousFilesMap) {
   /*
-    metalsmith-collections fix: 
-    
-    the `metalsmith-collections` plugin adds files to collection when `run()` is 
-    called, which creates problem since we use `run()` with only new files.
-  
-    In order to prevent duplicate issue (i.e. some contents will be available in 
-    collections with both new and the previous versions), we:
-    
-    1.  remove from existing collections files that will be updated 
-        (files already in the collections)
-    2.  iterate over collections with references to previous files data
-    3.  skip old files whose paths match those that will be updated
-    
-    (sigh)
-  */
+   *  metalsmith-collections fix: 
+   *  
+   *  the `metalsmith-collections` plugin adds files to collection when `run()` is 
+   *  called, which creates problem since we use `run()` with only new files.
+   *  
+   *  In order to prevent duplicate issue (i.e. some contents will be available in 
+   *  collections with both new and the previous versions), we:
+   *  
+   *  1.  remove from existing collections files that will be updated 
+   *      (files already in the collections)
+   *  2.  iterate over collections with references to previous files data
+   *  3.  skip old files whose paths match those that will be updated
+   *  
+   *  (sigh)
+   */
   saveFilenameInFilesData(metalsmith, files, options)
   const collections = metalsmith.metadata().collections
   const collectionsBackup = backupCollections(collections)
